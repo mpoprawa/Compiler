@@ -35,6 +35,9 @@ int yylex();
 "="             { return '='; }
 "<"             { return '<'; }
 ">"             { return '>'; }
+"["             { return '['; }
+"]"             { return ']'; }
+":"             { return ':'; }
 "("             { return '('; }
 ")"             { return ')'; }
 "+"             { return '+'; }
@@ -44,7 +47,8 @@ int yylex();
 "%"             { return '%'; }
 ","             { return ','; }
 ";"             { return ';'; }
-([0-9])* 	    { yylval.num = atoi(yytext); return val; }
+"T"             { return 'T'; }
+([0-9])* 	    { yylval.num = atoi(yytext); return number; }
 [_a-z]+         { yylval.str = strdup(yytext); return pidentifier; }
 "#".*   ;
 .|\n    ;

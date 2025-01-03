@@ -41,7 +41,7 @@ void function_calls();
 %token <fun_data> FUN_START FUN_CALL MAX_VALUE FUN_ARG
 
 %%
-all     : jump program                                                              {function_calls(); printf("done\n");}
+all     : jump program                                                              {function_calls(); printf("done 2\n");}
 
 jump    :                                                                           {fprintf(yyout,"JUMP \n");}
 

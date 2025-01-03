@@ -7,14 +7,15 @@ int yyerror(char*);
 extern FILE *yyin;
 extern FILE *yyout;
 
-int variable_count = 0;
-int max_count = 0;
+int variable_count = 1;
+int max_count = 1;
 int loop_type; /*0-IF 1-WHILE 2-UNTIL 3=FOR*/
 char* current_scope = "main";
 char* current_function = "main";
 struct symbol
 {
     int num;
+    int end;
     int type;
     char *name;
     char *scope;
@@ -23,14 +24,21 @@ struct symbol
 typedef struct symbol symbol;
 symbol *sym_table = NULL;
 
-void  insert_sym (char *sym_name, int type){
-    variable_count += 1;
-    if (variable_count>max_count){
-        max_count = variable_count;
-    }
+void  insert_sym(char *sym_name, int type, int start, int end){
+    int len = end-start;
     symbol *ptr;
     ptr = (symbol *) malloc (sizeof(symbol));
     ptr->num = variable_count;
+    if (len>0){
+        variable_count += 2 + len;
+    }
+    else{
+        variable_count += 1;
+    }
+    if (variable_count>max_count){
+        max_count = variable_count;
+    }
+    ptr->end = variable_count-1;
     ptr->type = type;
     ptr->name = (char *) malloc (strlen(sym_name)+1);
     strcpy (ptr->name,sym_name);
@@ -39,7 +47,7 @@ void  insert_sym (char *sym_name, int type){
     ptr->next = (struct symbol *)sym_table;
     sym_table = ptr;
 }
-symbol*  get_sym ( char *sym_name ){
+symbol*  get_sym(char *sym_name){
     symbol *ptr;
     for (ptr = sym_table; ptr != NULL; ptr = (symbol *)ptr->next){
         if (strcmp(ptr->name,sym_name) == 0 && strcmp(ptr->scope,current_scope) == 0){
@@ -51,8 +59,17 @@ symbol*  get_sym ( char *sym_name ){
 void declare(char *sym_name, int type){ /*0-zmienna 1-argument*/
     symbol *s;
     s =  get_sym(sym_name);
+    if (s == NULL || sym_name == "for_limit" || sym_name == "array_adr")
+        insert_sym(sym_name, type, 0, 0);
+    else {
+        printf( "%s is already defined\n", sym_name );
+    }
+}
+void declare_array(char *sym_name, int type, int start, int end){
+    symbol *s;
+    s =  get_sym(sym_name);
     if (s == NULL || sym_name == "for_limit")
-        insert_sym(sym_name, type);
+        insert_sym(sym_name, type, start, end);
     else {
         printf( "%s is already defined\n", sym_name );
     }
@@ -78,12 +95,14 @@ int num_check(int i){
 void print_sym_table(){
     symbol *ptr;
     for (ptr = sym_table; ptr != NULL; ptr = (symbol *)ptr->next){
-        printf("%s %d type %d in %s\n",ptr->name,ptr->num,ptr->type,ptr->scope);
+        printf("%s %d type %d starts at %d ends at %d in %s\n",ptr->name,ptr->num,ptr->type,ptr->num,ptr->end,ptr->scope);
     }
 }
 
 void load_var(int);
 void store_var(int);
+void add_var(int);
+void sub_var(int);
 void write_var(int*);
 void handle_addition(int*,int*);
 void handle_subtraction(int*,int*);
@@ -104,18 +123,18 @@ void add_argument(char*);
 %token PROCEDURE PROGRAM IS BEGIN_T END
 %token WRITE READ IF THEN ELSE ENDIF WHILE ENDWHILE REPEAT UNTIL FOR FROM TO DOWNTO DO ENDFOR
 %token ASSIGN N_EQUAL L_EQUAL G_EQUAL
-%token <num> val
+%token <num> number
 %token <str> pidentifier
 
 %left '+' '-'
 %left '*' '/' '%'
 
-%type <num> identifier
+%type <num> identifier val
 %type <str> prefunc
 %type <pair> value for 
 
 %%
-program_all : procedures main {printf("done\n"); fprintf(yyout,"HALT %d",max_count);}
+program_all : procedures main {printf("done 1\n"); fprintf(yyout,"HALT %d",max_count);}
 
 procedures  : procedures PROCEDURE proc_head IS declarations BEGIN_T commands END   {fprintf(yyout,"RTRN %d\n",sym_check("return")); variable_count = max_count;}
             | procedures PROCEDURE proc_head IS BEGIN_T commands END                {fprintf(yyout,"RTRN %d\n",sym_check("return")); variable_count = max_count;}
@@ -127,6 +146,8 @@ fidentifier : pidentifier                                                       
 
 args_decl   : args_decl ',' pidentifier                                             {declare($3,1); fprintf(yyout,"%d ",sym_check($3));}
             | pidentifier                                                           {declare($1,1); fprintf(yyout,"%d ",sym_check($1));}
+            | args_decl ',' 'T' pidentifier                                         {declare($4,1); fprintf(yyout,"%d ",sym_check($4));}
+            | 'T' pidentifier                                                       {declare($2,1); fprintf(yyout,"%d ",sym_check($2));}
             |
 
 main        : premain PROGRAM IS declarations temp BEGIN_T commands END
@@ -134,8 +155,12 @@ main        : premain PROGRAM IS declarations temp BEGIN_T commands END
 
 temp        : {print_sym_table();}
 
-declarations: declarations ',' pidentifier {printf("declaring %s\n",$3); declare($3,0);}
-            | pidentifier {printf("declaring %s\n",$1); declare($1,0);}
+declarations: declarations ',' pidentifier                              {declare($3,0);}
+            | pidentifier                                               {declare($1,0);}
+            | declarations ',' pidentifier '[' val ':' val ']'          {declare_array($3,0,$5,$7); int pos = sym_check($3);
+                                                                        fprintf(yyout,"SET %d\n",pos-$5+1); fprintf(yyout,"STORE %d\n",pos);}
+            | pidentifier '[' val ':' val ']'                           {declare_array($1,0,$3,$5); int pos = sym_check($1);
+                                                                        fprintf(yyout,"SET %d\n",pos-$3+1); fprintf(yyout,"STORE %d\n",pos);}
 
 commands    : commands command
             | command
@@ -181,16 +206,21 @@ condition   : value '=' value       {handle_compare($1,$3,0);}
 
 value       : val                   {$$[0] = 0;
                                      $$[1] = $1;}
-            | '-' val               {$$[0] = 0;
-                                     $$[1] = -$2;}
             | identifier            {$$[0] = 1;
                                      $$[1] = $1;}
 
-identifier  : pidentifier           {$$ = sym_check($1);}
+val         : number                   {$$ = $1;}
+            | '-' number               {$$ = -$2;}
+
+identifier  : pidentifier                       {$$ = sym_check($1);}
+            | pidentifier '[' val ']'           {int pos = sym_check($1); fprintf(yyout,"SET %d\n",$3); add_var(pos);
+                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
+            | pidentifier '[' pidentifier ']'   {int pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
+                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
 
 proc_call   : prefunc '(' args ')'      {fprintf(yyout,"SET RETURN\n");
-                                        fprintf(yyout,"STORE \n");
-                                        fprintf(yyout,"JUMP FUN$_%s_$FUN\n",$1);}
+                                         fprintf(yyout,"STORE \n");
+                                         fprintf(yyout,"JUMP FUN$_%s_$FUN\n",$1);}
 
 args        : args ',' pidentifier      {add_argument($3);}
             | pidentifier               {add_argument($1);}
@@ -219,6 +249,26 @@ void store_var(int n){
     }
 }
 
+void add_var(int n){
+    int type = num_check(n);
+    if (type == 0){
+        fprintf(yyout,"ADD %d\n",n);
+    }
+    else if (type == 1){
+        fprintf(yyout,"ADDI %d\n",n);
+    }
+}
+
+void sub_var(int n){
+    int type = num_check(n);
+    if (type == 0){
+        fprintf(yyout,"SUB %d\n",n);
+    }
+    else if (type == 1){
+        fprintf(yyout,"SUBI %d\n",n);
+    }
+}
+
 void write_var(int *x){
     if (x[0]==0){
         fprintf(yyout,"SET %d\n",x[1]);
@@ -238,37 +288,39 @@ void write_var(int *x){
 
 void handle_addition(int *x, int *y){
     if (x[0]==1 && y[0] == 1){
-        fprintf(yyout,"LOAD %d\n",x[1]);
-        fprintf(yyout,"ADD %d\n",y[1]);
+        load_var(x[1]);
+        add_var(y[1]);
     }
     else if (x[0]==0 && y[0] == 0){
         fprintf(yyout,"SET %d\n",x[1]+y[1]);
     }
     else if (x[0] == 0){
         fprintf(yyout,"SET %d\n",x[1]);
-        fprintf(yyout,"ADD %d\n",y[1]);
+        add_var(y[1]);
     }
     else{
         fprintf(yyout,"SET %d\n",y[1]);
-        fprintf(yyout,"ADD %d\n",x[1]);
+        add_var(x[1]);
     }
 }
 
 void handle_subtraction(int *x, int *y){
     if (x[0]==1 && y[0] == 1){
-        fprintf(yyout,"LOAD %d\n",x[1]);
-        fprintf(yyout,"SUB %d\n",y[1]);
+        load_var(x[1]);
+        sub_var(y[1]);
     }
     else if (x[0]==0 && y[0] == 0){
         fprintf(yyout,"SET %d\n",x[1]-y[1]);
     }
     else if (x[0] == 0){
         fprintf(yyout,"SET %d\n",x[1]);
-        fprintf(yyout,"SUB %d\n",y[1]);
+        //fprintf(yyout,"SUB %d\n",y[1]);
+        sub_var(y[1]);
     }
     else{
         fprintf(yyout,"SET %d\n",-y[1]);
-        fprintf(yyout,"ADD %d\n", x[1]);
+        //fprintf(yyout,"ADD %d\n", x[1]);
+        add_var(x[1]);
     }
 }
 
@@ -449,7 +501,7 @@ void handle_modulo(int *x, int *y){
     if (x[0] == 0){
         fprintf(yyout,"SET %d\n",x[1]);}
     else {
-        fprintf(yyout,"LOAD %d\n",x[1]);}
+        load_var(x[1]);}
     x[1] = variable_count+1;
     fprintf(yyout,"STORE $+1\n");
     fprintf(yyout,"JPOS 6\n");
@@ -465,7 +517,7 @@ void handle_modulo(int *x, int *y){
     if (y[0] == 0){
         fprintf(yyout,"SET %d\n",y[1]);}
     else {
-        fprintf(yyout,"LOAD %d\n",y[1]);}
+        load_var(y[1]);}
     y[1] = variable_count+2;
     fprintf(yyout,"JZERO 41\n");
     fprintf(yyout,"STORE $+2\n");
@@ -526,19 +578,19 @@ void handle_compare(int *x, int *y, int type){
     }
 
     if (x[0]==1 && y[0] == 1){
-        fprintf(yyout,"LOAD %d\n",x[1]);
-        fprintf(yyout,"SUB %d\n",y[1]);
+        load_var(x[1]);
+        sub_var(y[1]);
     }
     else if (x[0]==0 && y[0] == 0){
         fprintf(yyout,"SET %d\n",x[1]-y[1]);
     }
     else if (x[0] == 0){
         fprintf(yyout,"SET %d\n",x[1]);
-        fprintf(yyout,"SUB %d\n",y[1]);
+        sub_var(y[1]);
     }
     else{
         fprintf(yyout,"SET %d\n",-y[1]);
-        fprintf(yyout,"ADD %d\n",x[1]);
+        add_var(x[1]);
     }
 
     if (type == 0){
@@ -582,7 +634,8 @@ void start_for(int *x, int *y, int i, int type){
         fprintf(yyout,"SET %d\n",x[1]);
     }
     else{
-        fprintf(yyout,"LOAD %d\n",x[1]);
+        load_var(x[1]);
+        //fprintf(yyout,"LOAD %d\n",x[1]);
     }
     x[0] = 1;
     x[1] = i;
@@ -592,7 +645,7 @@ void start_for(int *x, int *y, int i, int type){
         fprintf(yyout,"SET %d\n",y[1]);
     }
     else{
-        fprintf(yyout,"LOAD %d\n",y[1]);
+        load_var(y[1]);
     }
     y[0] = 1;
     y[1] = i+1;
