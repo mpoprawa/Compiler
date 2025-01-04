@@ -4,6 +4,7 @@
 %{
 #include "parser.h"
 int yylex();
+int linenum = 1;
 %}
 
 %%
@@ -50,6 +51,7 @@ int yylex();
 "T"             { return 'T'; }
 ([0-9])* 	    { yylval.num = atoi(yytext); return number; }
 [_a-z]+         { yylval.str = strdup(yytext); return pidentifier; }
-"#".*   ;
-.|\n    ;
+\n              { linenum+=1; }
+"#".*           ;
+.               ;
 %%

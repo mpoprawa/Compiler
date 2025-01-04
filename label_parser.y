@@ -33,15 +33,15 @@ void function_calls();
             char *id;
         } fun_data;
     }
-%token <str> CHR RTRN HALT ARGUMENT_LIST
+%token <str> CHR HALT
 %token <num> START ELSE END MAIN
 %token <num> WHILE_START WHILE_END WHILE_BEGIN WHILE_RETURN
 %token <num> UNTIL_START UNTIL_END 
 %token <num> FOR_START FOR_END FOR_BEGIN FOR_RETURN RETURN
-%token <fun_data> FUN_START FUN_CALL MAX_VALUE FUN_ARG
+%token <fun_data> FUN_START FUN_CALL MAX_VALUE
 
 %%
-all     : jump program                                                              {function_calls(); printf("done 2\n");}
+all     : jump program                                                              {function_calls(); printf("done\n");}
 
 jump    :                                                                           {fprintf(yyout,"JUMP \n");}
 
@@ -58,10 +58,7 @@ block   : MAIN                                                                  
         | FUN_START                                                                 {insert_function($1.pos,$1.id,0);}
         | FUN_CALL                                                                  {insert_function($1.pos,$1.id,1);}
         | RETURN                                                                    {fprintf(yyout,"%d",$1+3);}
-        | RTRN                                                                      {fprintf(yyout,"%s",$1); insert_return($1);}
         | MAX_VALUE                                                                 {fprintf(labels,"%d %s\n",$1.pos,$1.id);}
-        | ARGUMENT_LIST                                                             {fprintf(labels,"%s\n",$1);}
-        | FUN_ARG                                                                   {fprintf(yyout,"STORE "); fprintf(labels,"%d %s\n",$1.pos,$1.id);}
         | HALT                                                                      {fprintf(yyout,"HALT"); fprintf(labels,"%s\n",$1);}
 %%
 
@@ -97,18 +94,14 @@ void insert_return(char *name){
 void function_calls(){
     function *call;
     function *fn;
-    function *rtrn;
     call = fun_calls;
     while (call != NULL){
-        rtrn = return_table;
         for (fn = fun_table; strcmp(fn->id,call->id) != 0; fn = (function *)fn->next){
             if (fn->next == NULL){
                 printf("calling undeclared function\n");
                 return;
             }
-            rtrn = rtrn->next;
         }
-        fprintf(labels,"%d %s\n",call->pos-1,rtrn->id);
         fprintf(labels,"%d %d\n",call->pos,fn->pos-call->pos);
         call = call->next;
     }

@@ -4,14 +4,18 @@
 #include<string.h>
 int yylex();
 int yyerror(char*);
+extern int linenum;
 extern FILE *yyin;
 extern FILE *yyout;
 
+int error_type = 0;
 int variable_count = 1;
 int max_count = 1;
 int loop_type; /*0-IF 1-WHILE 2-UNTIL 3=FOR*/
 char* current_scope = "main";
 char* current_function = "main";
+int fun_loc = 0;
+int arg_count = 0;
 struct symbol
 {
     int num;
@@ -62,23 +66,30 @@ void declare(char *sym_name, int type){ /*0-zmienna 1-argument*/
     if (s == NULL || sym_name == "for_limit" || sym_name == "array_adr")
         insert_sym(sym_name, type, 0, 0);
     else {
-        printf( "%s is already defined\n", sym_name );
+        error_type = 3;
+        yyerror(sym_name);
     }
 }
 void declare_array(char *sym_name, int type, int start, int end){
+    if (start>end){
+        error_type = 4;
+        yyerror(sym_name);
+    }
+
     symbol *s;
     s =  get_sym(sym_name);
-    if (s == NULL || sym_name == "for_limit")
+    if (s == NULL || sym_name == "for_limit" || sym_name == "array_adr")
         insert_sym(sym_name, type, start, end);
     else {
-        printf( "%s is already defined\n", sym_name );
+        error_type = 3;
+        yyerror(sym_name);
     }
 }
 int sym_check(char *sym_name){
     symbol *sym =  get_sym(sym_name);
     if (sym == NULL){
-        printf( "%s is an undeclared identifier\n", sym_name );
-        return 0;
+        error_type = 2;
+        yyerror(sym_name);
     }
     else{
         return sym->num;
@@ -89,6 +100,46 @@ int num_check(int i){
     for (ptr = sym_table; ptr != NULL; ptr = (symbol *)ptr->next){
         if (ptr->num == i){
             return ptr->type;
+        }
+    }
+}
+int find_in_scope(char *sym_name){
+    char *temp_scope = current_scope;
+    current_scope = current_function;
+    symbol *sym =  get_sym(sym_name);
+    if (sym == NULL){
+        error_type = 8;
+        yyerror(current_function);
+    }
+    else{
+        current_scope = temp_scope;
+        return sym->num;
+    }   
+}
+void type_check(char *sym_name, int type){/*0-int 1-tablica*/
+    symbol *sym =  get_sym(sym_name);
+    if (sym == NULL){
+        error_type = 2;
+        yyerror(sym_name);
+    }
+    if (type == 0 && (sym->num != sym->end || sym->type == 2)){
+        if (arg_count == 0){
+            error_type = 5;
+            yyerror(sym_name);
+        }
+        else{
+            error_type = 12;
+            yyerror(current_function);
+        }
+    }
+    if (type == 1 && (sym->num == sym->end && sym->type != 2)){
+        if (arg_count == 0){
+            error_type = 6;
+            yyerror(sym_name);
+        }
+        else{
+            error_type = 12;
+            yyerror(current_function);
         }
     }
 }
@@ -134,26 +185,26 @@ void add_argument(char*);
 %type <pair> value for 
 
 %%
-program_all : procedures main {printf("done 1\n"); fprintf(yyout,"HALT %d",max_count);}
+program_all : procedures main {fprintf(yyout,"HALT %d",max_count); printf("done\n");}
 
 procedures  : procedures PROCEDURE proc_head IS declarations BEGIN_T commands END   {fprintf(yyout,"RTRN %d\n",sym_check("return")); variable_count = max_count;}
             | procedures PROCEDURE proc_head IS BEGIN_T commands END                {fprintf(yyout,"RTRN %d\n",sym_check("return")); variable_count = max_count;}
             |
 
-proc_head   : fidentifier '(' args_decl ')'                                         {fprintf(yyout,"] ");}
+proc_head   : fidentifier '(' args_decl ')'
 
-fidentifier : pidentifier                                                           {fprintf(yyout,"FUN$_%s_$FUN FN$_%s_$FN [ ",$1,$1); current_scope = $1; declare("return",0);}                                         
+fidentifier : pidentifier                                                           {fprintf(yyout,"FUN$_%s_$FUN ",$1); current_scope = $1; declare("return",0);}                                         
 
-args_decl   : args_decl ',' pidentifier                                             {declare($3,1); fprintf(yyout,"%d ",sym_check($3));}
-            | pidentifier                                                           {declare($1,1); fprintf(yyout,"%d ",sym_check($1));}
-            | args_decl ',' 'T' pidentifier                                         {declare($4,1); fprintf(yyout,"%d ",sym_check($4));}
-            | 'T' pidentifier                                                       {declare($2,1); fprintf(yyout,"%d ",sym_check($2));}
+args_decl   : args_decl ',' pidentifier                                             {declare($3,1);}
+            | pidentifier                                                           {declare($1,1);}
+            | args_decl ',' 'T' pidentifier                                         {declare($4,2);}
+            | 'T' pidentifier                                                       {declare($2,2);}
             |
 
-main        : premain PROGRAM IS declarations temp BEGIN_T commands END
+main        : premain PROGRAM IS declarations BEGIN_T commands END
             | premain PROGRAM IS BEGIN_T commands END
 
-temp        : {print_sym_table();}
+/*temp        : {print_sym_table();}*/
 
 declarations: declarations ',' pidentifier                              {declare($3,0);}
             | pidentifier                                               {declare($1,0);}
@@ -165,15 +216,15 @@ declarations: declarations ',' pidentifier                              {declare
 commands    : commands command
             | command
 
-command     : identifier ASSIGN expression ';'                          {store_var($1);}
+command     : identifier assign expression lineend                      {store_var($1);}
             | if IF condition THEN commands ENDIF                       {fprintf(yyout,"IFEND ");}
             | if IF condition THEN commands else ELSE commands ENDIF    {fprintf(yyout,"IFEND ");}
             | while WHILE condition DO commands ENDWHILE                {fprintf(yyout,"WHILEEND JUMP WHILESTART\n");}
-            | repeat1 REPEAT commands repeat2 UNTIL condition ';'
+            | repeat1 REPEAT commands repeat2 UNTIL condition lineend
             | FOR for commands ENDFOR                                   {end_for($2);}
-            | proc_call ';'
-            | WRITE value ';'                                           {write_var($2);}
-            | READ identifier ';'                                       {fprintf(yyout,"GET %d\n",$2);}
+            | proc_call lineend
+            | WRITE value lineend                                       {write_var($2);}
+            | READ identifier lineend                                   {fprintf(yyout,"GET %d\n",$2);}
 
 premain     :                                                           {fprintf(yyout,"MAIN "); current_scope = "main";}
 if          :                                                           {loop_type = 0;}
@@ -212,20 +263,32 @@ value       : val                   {$$[0] = 0;
 val         : number                   {$$ = $1;}
             | '-' number               {$$ = -$2;}
 
-identifier  : pidentifier                       {$$ = sym_check($1);}
-            | pidentifier '[' val ']'           {int pos = sym_check($1); fprintf(yyout,"SET %d\n",$3); add_var(pos);
+identifier  : pidentifier                       {type_check($1,0); $$ = sym_check($1);}
+            | pidentifier '[' val ']'           {type_check($1,1); int pos = sym_check($1); fprintf(yyout,"SET %d\n",$3); add_var(pos);
                                                  declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
-            | pidentifier '[' pidentifier ']'   {int pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
+            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); int pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
                                                  declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
 
-proc_call   : prefunc '(' args ')'      {fprintf(yyout,"SET RETURN\n");
-                                         fprintf(yyout,"STORE \n");
+proc_call   : prefunc '(' args ')'      {int type = num_check(fun_loc+arg_count);
+                                         if (type == 1 || type == 2){
+                                            error_type = 11;
+                                            yyerror(current_function);}
+                                         arg_count = 0;
+                                         fprintf(yyout,"SET RETURN\n");
+                                         fprintf(yyout,"STORE %d\n",fun_loc);
                                          fprintf(yyout,"JUMP FUN$_%s_$FUN\n",$1);}
 
 args        : args ',' pidentifier      {add_argument($3);}
             | pidentifier               {add_argument($1);}
 
-prefunc     : pidentifier               {current_function = $1;}
+prefunc     : pidentifier               {if (strcmp($1,current_scope) == 0){error_type = 9; yyerror($1);}
+                                         current_function = $1; fun_loc = find_in_scope("return"); arg_count = 1;}
+
+lineend     : ';'
+            |                           {error_type = 1; yyerror("");}
+
+assign      : ASSIGN
+            | '='                       {error_type = 7; yyerror("");}
 
 %%
 
@@ -234,7 +297,7 @@ void load_var(int n){
     if (type == 0){
         fprintf(yyout,"LOAD %d\n",n);
     }
-    else if (type == 1){
+    else{
         fprintf(yyout,"LOADI %d\n",n);
     }
 }
@@ -244,7 +307,7 @@ void store_var(int n){
     if (type == 0){
         fprintf(yyout,"STORE %d\n",n);
     }
-    else if (type == 1){
+    else{
         fprintf(yyout,"STOREI %d\n",n);
     }
 }
@@ -254,7 +317,7 @@ void add_var(int n){
     if (type == 0){
         fprintf(yyout,"ADD %d\n",n);
     }
-    else if (type == 1){
+    else{
         fprintf(yyout,"ADDI %d\n",n);
     }
 }
@@ -264,7 +327,7 @@ void sub_var(int n){
     if (type == 0){
         fprintf(yyout,"SUB %d\n",n);
     }
-    else if (type == 1){
+    else{
         fprintf(yyout,"SUBI %d\n",n);
     }
 }
@@ -630,12 +693,22 @@ void handle_compare(int *x, int *y, int type){
 }
 
 void start_for(int *x, int *y, int i, int type){
+    if (x[0] == 0 && y[0] == 0){
+        if (type == 0 && x[1]>y[1]){
+            error_type = 13;
+            yyerror("");
+        }
+        else if(type == 1 && x[1]<y[1]){
+            error_type = 13;
+            yyerror("");
+        }
+    }
+    
     if (x[0] == 0){
         fprintf(yyout,"SET %d\n",x[1]);
     }
     else{
         load_var(x[1]);
-        //fprintf(yyout,"LOAD %d\n",x[1]);
     }
     x[0] = 1;
     x[1] = i;
@@ -694,12 +767,64 @@ void add_argument(char *name){
     else{
         fprintf(yyout,"LOAD %d\n",pos);
     }
-    fprintf(yyout,"STORE FN$_%s_$FN\n",current_function);
+
+    type = num_check(fun_loc+arg_count);
+    if (type != 1 && type != 2){
+        error_type = 10;
+        yyerror(current_function);
+    }
+    if (type == 1){
+        type_check(name,0);
+    }
+    if (type == 2){
+        type_check(name,1);
+    }
+
+    fprintf(yyout,"STORE %d\n",fun_loc+arg_count);
+    arg_count+=1;
 }
 
-int yyerror(char *s)
-{
-    return 0;
+int yyerror(char *name){
+    if (error_type == 1){
+        printf("ERROR line %d: missing ;\n",linenum-1);
+    }
+    else if(error_type == 2){
+        printf("ERROR line %d: %s is undeclared\n",linenum,name);
+    }
+    else if(error_type == 3){
+        printf("ERROR line %d: multiple declarations of %s\n",linenum,name);
+    }
+    else if(error_type == 4){
+        printf("ERROR line %d: array %s has invalid range\n",linenum,name);
+    }
+    else if(error_type == 5){
+        printf("ERROR line %d: invalid use of array %s\n",linenum,name);
+    }
+    else if(error_type == 6){
+        printf("ERROR line %d: %s is not an array\n",linenum,name);
+    }
+    else if(error_type == 7){
+        printf("ERROR line %d: = can't be used for assignment\n",linenum);
+    }
+    else if(error_type == 8){
+        printf("ERROR line %d: calling undeclared procedure %s\n",linenum,name);
+    }
+    else if(error_type == 9){
+        printf("ERROR line %d: attempted recursion in %s\n",linenum,name);
+    }
+    else if(error_type == 10){
+        printf("ERROR line %d: too many arguments for function %s\n",linenum,name);
+    }
+    else if(error_type == 11){
+        printf("ERROR line %d: not enough arguments for function %s\n",linenum,name);
+    }
+    else if(error_type == 12){
+        printf("ERROR line %d: incorrect type for function %s\n",linenum,name);
+    }
+    else if(error_type == 13){
+        printf("ERROR line %d: incorrect for loop iterator bounds\n",linenum);
+    }
+    exit(1);
 }
 
 int main(int argc, char *argv[])

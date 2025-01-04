@@ -22,9 +22,6 @@ int yylex();
 "FORSTART"                  {yylval.num = yylineno; return FOR_RETURN;}
 "MAIN "                     {yylval.num = yylineno; return MAIN;}
 "RETURN"                    {yylval.num = yylineno; return RETURN;}
-"RTRN ".*                   {yylval.str = yytext; return RTRN;}
-"FN$_".*"_$FN [ ".*" ] "    {yylval.str = yytext; return ARGUMENT_LIST;}
-"STORE FN$_".*"_$FN"        {yylval.fun_data.pos = yylineno; yylval.fun_data.id = yytext; return FUN_ARG;}
 "FUN$_".*"_$FUN "           {yylval.fun_data.pos = yylineno; yylval.fun_data.id = yytext; return FUN_START;}
 "FUN$_".*"_$FUN"            {yylval.fun_data.pos = yylineno; yylval.fun_data.id = yytext; return FUN_CALL;}
 "$+"[0-9]*                  {yylval.fun_data.pos = yylineno; yylval.fun_data.id = yytext; return MAX_VALUE;}
