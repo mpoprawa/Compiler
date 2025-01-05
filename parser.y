@@ -16,11 +16,15 @@ char* current_scope = "main";
 char* current_function = "main";
 int fun_loc = 0;
 int arg_count = 0;
+int current_init = 0;
 struct symbol
 {
     int num;
+    int start;
     int end;
     int type;
+    int initialised;
+    int iterator;
     char *name;
     char *scope;
     struct symbol *next;
@@ -42,8 +46,18 @@ void  insert_sym(char *sym_name, int type, int start, int end){
     if (variable_count>max_count){
         max_count = variable_count;
     }
+    ptr->start = start;
     ptr->end = variable_count-1;
-    ptr->type = type;
+    if (type == 3){
+        ptr->type = 0;
+        ptr->initialised = 1;
+        ptr->iterator = 1;
+    }
+    else{
+        ptr->type = type;
+        ptr->initialised = 0;
+        ptr->iterator = 0;
+    }
     ptr->name = (char *) malloc (strlen(sym_name)+1);
     strcpy (ptr->name,sym_name);
     ptr->scope = (char *) malloc (strlen(current_scope)+1);
@@ -143,10 +157,44 @@ void type_check(char *sym_name, int type){/*0-int 1-tablica*/
         }
     }
 }
+void bound_check(char *sym_name, int n){
+    symbol *sym =  get_sym(sym_name);
+    if (sym == NULL){
+        error_type = 2;
+        yyerror(sym_name);
+    }
+    int end = sym->end - sym->num + sym->start -1;
+    //printf("%d %d %d\n",sym->start,end,n);
+    if (sym->type == 0 && (n<sym->start || n>end)){
+        error_type = 14;
+        yyerror(sym_name);
+    }
+}
+void init(int i){
+    symbol *ptr;
+    for (ptr = sym_table; ptr != NULL; ptr = (symbol *)ptr->next){
+        if (ptr->num == i){
+            break;
+        }
+    }
+    if (ptr->iterator == 1){
+        error_type = 16;
+        yyerror(ptr->name);
+    }
+    ptr->initialised = 1;
+}
+void init_check(char *sym_name){
+    symbol *ptr;
+    ptr = get_sym(sym_name);
+    if (ptr->initialised == 0 && ptr->type == 0){
+        error_type = 15;
+        yyerror(ptr->name);
+    }
+}
 void print_sym_table(){
     symbol *ptr;
     for (ptr = sym_table; ptr != NULL; ptr = (symbol *)ptr->next){
-        printf("%s %d type %d starts at %d ends at %d in %s\n",ptr->name,ptr->num,ptr->type,ptr->num,ptr->end,ptr->scope);
+        printf("%s %d type %d starts at %d ends at %d in %s init is %d\n",ptr->name,ptr->num,ptr->type,ptr->num,ptr->end,ptr->scope,ptr->initialised);
     }
 }
 
@@ -180,7 +228,7 @@ void add_argument(char*);
 %left '+' '-'
 %left '*' '/' '%'
 
-%type <num> identifier val
+%type <num> identifier aidentifier val
 %type <str> prefunc
 %type <pair> value for 
 
@@ -201,10 +249,10 @@ args_decl   : args_decl ',' pidentifier                                         
             | 'T' pidentifier                                                       {declare($2,2);}
             |
 
-main        : premain PROGRAM IS declarations BEGIN_T commands END
+main        : premain PROGRAM IS declarations temp BEGIN_T commands END temp
             | premain PROGRAM IS BEGIN_T commands END
 
-/*temp        : {print_sym_table();}*/
+temp        :
 
 declarations: declarations ',' pidentifier                              {declare($3,0);}
             | pidentifier                                               {declare($1,0);}
@@ -216,7 +264,7 @@ declarations: declarations ',' pidentifier                              {declare
 commands    : commands command
             | command
 
-command     : identifier assign expression lineend                      {store_var($1);}
+command     : aidentifier assign expression lineend                     {store_var($1); init($1);}
             | if IF condition THEN commands ENDIF                       {fprintf(yyout,"IFEND ");}
             | if IF condition THEN commands else ELSE commands ENDIF    {fprintf(yyout,"IFEND ");}
             | while WHILE condition DO commands ENDWHILE                {fprintf(yyout,"WHILEEND JUMP WHILESTART\n");}
@@ -224,7 +272,7 @@ command     : identifier assign expression lineend                      {store_v
             | FOR for commands ENDFOR                                   {end_for($2);}
             | proc_call lineend
             | WRITE value lineend                                       {write_var($2);}
-            | READ identifier lineend                                   {fprintf(yyout,"GET %d\n",$2);}
+            | READ aidentifier lineend                                  {fprintf(yyout,"GET %d\n",$2); init($2);}
 
 premain     :                                                           {fprintf(yyout,"MAIN "); current_scope = "main";}
 if          :                                                           {loop_type = 0;}
@@ -233,9 +281,9 @@ while       :                                                           {loop_ty
 repeat1     :                                                           {fprintf(yyout,"UNTILSTART ");}
 repeat2     :                                                           {loop_type = 2;}
 
-for         : pidentifier FROM value TO value DO        {loop_type=3; declare($1,0); declare("for_limit",0); $$[0]=0; $$[1]=sym_check($1);
+for         : pidentifier FROM value TO value DO        {loop_type=3; declare($1,3); declare("for_limit",0); $$[0]=0; $$[1]=sym_check($1);
                                                         start_for($3,$5,$$[1],$$[0]);}
-            | pidentifier FROM value DOWNTO value DO    {loop_type=3; declare($1,0); declare("for_limit",0); $$[0]=1; $$[1]=sym_check($1);
+            | pidentifier FROM value DOWNTO value DO    {loop_type=3; declare($1,3); declare("for_limit",0); $$[0]=1; $$[1]=sym_check($1);
                                                         start_for($3,$5,$$[1],$$[0]);}
 
 expression  : value                 {if ($1[0]==0){
@@ -263,10 +311,16 @@ value       : val                   {$$[0] = 0;
 val         : number                   {$$ = $1;}
             | '-' number               {$$ = -$2;}
 
-identifier  : pidentifier                       {type_check($1,0); $$ = sym_check($1);}
-            | pidentifier '[' val ']'           {type_check($1,1); int pos = sym_check($1); fprintf(yyout,"SET %d\n",$3); add_var(pos);
+aidentifier  : pidentifier                      {type_check($1,0); $$ = sym_check($1);}
+            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3); int pos = sym_check($1); fprintf(yyout,"SET %d\n",$3); add_var(pos);
                                                  declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
-            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); int pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
+            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3); int pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
+                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
+
+identifier  : pidentifier                       {type_check($1,0); $$ = sym_check($1); init_check($1);}
+            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3); int pos = sym_check($1); fprintf(yyout,"SET %d\n",$3); add_var(pos);
+                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
+            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3); int pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
                                                  declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
 
 proc_call   : prefunc '(' args ')'      {int type = num_check(fun_loc+arg_count);
@@ -278,8 +332,8 @@ proc_call   : prefunc '(' args ')'      {int type = num_check(fun_loc+arg_count)
                                          fprintf(yyout,"STORE %d\n",fun_loc);
                                          fprintf(yyout,"JUMP FUN$_%s_$FUN\n",$1);}
 
-args        : args ',' pidentifier      {add_argument($3);}
-            | pidentifier               {add_argument($1);}
+args        : args ',' pidentifier      {add_argument($3); init(sym_check($3));}
+            | pidentifier               {add_argument($1); init(sym_check($1));}
 
 prefunc     : pidentifier               {if (strcmp($1,current_scope) == 0){error_type = 9; yyerror($1);}
                                          current_function = $1; fun_loc = find_in_scope("return"); arg_count = 1;}
@@ -751,11 +805,9 @@ void end_for(int *i){
         for (ptr = sym_table; ptr->next->num != i[1]+1; ptr = (symbol *)ptr->next){}
         ptr->next = ptr->next->next->next;
     }
-
-    /*for (ptr = sym_table; ptr != NULL; ptr = (symbol *)ptr->next){
-        printf("%s %d\n",ptr->name,ptr->num);
-    }*/
-    variable_count = sym_table->num;
+    if (sym_table != NULL){
+        variable_count = sym_table->num;
+    }
 }
 
 void add_argument(char *name){
@@ -823,6 +875,15 @@ int yyerror(char *name){
     }
     else if(error_type == 13){
         printf("ERROR line %d: incorrect for loop iterator bounds\n",linenum);
+    }
+    else if(error_type == 14){
+        printf("ERROR line %d: attempting to access array %s out of bounds\n",linenum,name);
+    }
+    else if(error_type == 15){
+        printf("ERROR line %d: %s is not initialised\n",linenum,name);
+    }
+    else if(error_type == 16){
+        printf("ERROR line %d: attempting to modify for loop iterator %s\n",linenum,name);
     }
     exit(1);
 }
