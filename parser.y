@@ -2,29 +2,29 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<limits.h>
 int yylex();
 int yyerror(char*);
 extern int linenum;
 extern FILE *yyin;
 extern FILE *yyout;
 
-int error_type = 0;
-int variable_count = 1;
-int max_count = 1;
-int loop_type; /*0-IF 1-WHILE 2-UNTIL 3=FOR*/
+long long error_type = 0;
+long long variable_count = 1;
+long long max_count = 1;
+long long loop_type; /*0-IF 1-WHILE 2-UNTIL 3=FOR*/
 char* current_scope = "main";
 char* current_function = "main";
-int fun_loc = 0;
-int arg_count = 0;
-int current_init = 0;
+long long fun_loc = 0;
+long long arg_count = 0;
 struct symbol
 {
-    int num;
-    int start;
-    int end;
-    int type;
-    int initialised;
-    int iterator;
+    long long num;
+    long long start;
+    long long end;
+    long long type;
+    long long initialised;
+    long long iterator;
     char *name;
     char *scope;
     struct symbol *next;
@@ -32,8 +32,8 @@ struct symbol
 typedef struct symbol symbol;
 symbol *sym_table = NULL;
 
-void  insert_sym(char *sym_name, int type, int start, int end){
-    int len = end-start;
+void  insert_sym(char *sym_name, long long type, long long start, long long end){
+    long long len = end-start;
     symbol *ptr;
     ptr = (symbol *) malloc (sizeof(symbol));
     ptr->num = variable_count;
@@ -74,7 +74,7 @@ symbol*  get_sym(char *sym_name){
     }
     return NULL;
 }
-void declare(char *sym_name, int type){ /*0-zmienna 1-argument*/
+void declare(char *sym_name, long long type){ /*0-zmienna 1-argument*/
     symbol *s;
     s =  get_sym(sym_name);
     if (s == NULL || sym_name == "for_limit" || sym_name == "array_adr")
@@ -84,7 +84,7 @@ void declare(char *sym_name, int type){ /*0-zmienna 1-argument*/
         yyerror(sym_name);
     }
 }
-void declare_array(char *sym_name, int type, int start, int end){
+void declare_array(char *sym_name, long long type, long long start, long long end){
     if (start>end){
         error_type = 4;
         yyerror(sym_name);
@@ -99,7 +99,7 @@ void declare_array(char *sym_name, int type, int start, int end){
         yyerror(sym_name);
     }
 }
-int sym_check(char *sym_name){
+long long sym_check(char *sym_name){
     symbol *sym =  get_sym(sym_name);
     if (sym == NULL){
         error_type = 2;
@@ -109,7 +109,7 @@ int sym_check(char *sym_name){
         return sym->num;
     }
 }
-int num_check(int i){
+long long num_check(long long i){
     symbol *ptr;
     for (ptr = sym_table; ptr != NULL; ptr = (symbol *)ptr->next){
         if (ptr->num == i){
@@ -117,7 +117,7 @@ int num_check(int i){
         }
     }
 }
-int find_in_scope(char *sym_name){
+long long find_in_scope(char *sym_name){
     char *temp_scope = current_scope;
     current_scope = current_function;
     symbol *sym =  get_sym(sym_name);
@@ -130,7 +130,7 @@ int find_in_scope(char *sym_name){
         return sym->num;
     }   
 }
-void type_check(char *sym_name, int type){/*0-int 1-tablica*/
+void type_check(char *sym_name, long long type){/*0-long long 1-tablica*/
     symbol *sym =  get_sym(sym_name);
     if (sym == NULL){
         error_type = 2;
@@ -157,20 +157,20 @@ void type_check(char *sym_name, int type){/*0-int 1-tablica*/
         }
     }
 }
-void bound_check(char *sym_name, int n){
+void bound_check(char *sym_name, long long n){
     symbol *sym =  get_sym(sym_name);
     if (sym == NULL){
         error_type = 2;
         yyerror(sym_name);
     }
-    int end = sym->end - sym->num + sym->start -1;
-    //printf("%d %d %d\n",sym->start,end,n);
+    long long end = sym->end - sym->num + sym->start -1;
+    //printf("%lld %lld %lld\n",sym->start,end,n);
     if (sym->type == 0 && (n<sym->start || n>end)){
         error_type = 14;
         yyerror(sym_name);
     }
 }
-void init(int i){
+void init(long long i){
     symbol *ptr;
     for (ptr = sym_table; ptr != NULL; ptr = (symbol *)ptr->next){
         if (ptr->num == i){
@@ -194,29 +194,29 @@ void init_check(char *sym_name){
 void print_sym_table(){
     symbol *ptr;
     for (ptr = sym_table; ptr != NULL; ptr = (symbol *)ptr->next){
-        printf("%s %d type %d starts at %d ends at %d in %s init is %d\n",ptr->name,ptr->num,ptr->type,ptr->num,ptr->end,ptr->scope,ptr->initialised);
+        printf("%s %lld type %lld starts at %lld ends at %lld in %s init is %lld\n",ptr->name,ptr->num,ptr->type,ptr->num,ptr->end,ptr->scope,ptr->initialised);
     }
 }
 
-void load_var(int);
-void store_var(int);
-void add_var(int);
-void sub_var(int);
-void write_var(int*);
-void handle_addition(int*,int*);
-void handle_subtraction(int*,int*);
-void handle_multiplication(int*,int*);
-void handle_division(int*,int*);
-void handle_modulo(int*,int*);
-void handle_compare(int*,int*,int);
-void start_for(int*,int*,int,int);
-void end_for(int*);
+void load_var(long long);
+void store_var(long long);
+void add_var(long long);
+void sub_var(long long);
+void write_var(long long*);
+void handle_addition(long long*,long long*);
+void handle_subtraction(long long*,long long*);
+void handle_multiplication(long long*,long long*);
+void handle_division(long long*,long long*);
+void handle_modulo(long long*,long long*);
+void handle_compare(long long*,long long*,long long);
+void start_for(long long*,long long*,long long,long long);
+void end_for(long long*);
 void add_argument(char*);
 %}
 
 %union {
-        int pair[2];
-        int num;
+        long long pair[2];
+        long long num;
         char* str;
     }
 %token PROCEDURE PROGRAM IS BEGIN_T END
@@ -233,10 +233,10 @@ void add_argument(char*);
 %type <pair> value for 
 
 %%
-program_all : procedures main {fprintf(yyout,"HALT %d",max_count); printf("done\n");}
+program_all : procedures main {fprintf(yyout,"HALT %lld",max_count); printf("done\n");}
 
-procedures  : procedures PROCEDURE proc_head IS declarations BEGIN_T commands END   {fprintf(yyout,"RTRN %d\n",sym_check("return")); variable_count = max_count;}
-            | procedures PROCEDURE proc_head IS BEGIN_T commands END                {fprintf(yyout,"RTRN %d\n",sym_check("return")); variable_count = max_count;}
+procedures  : procedures PROCEDURE proc_head IS declarations BEGIN_T commands END   {fprintf(yyout,"RTRN %lld\n",sym_check("return")); variable_count = max_count;}
+            | procedures PROCEDURE proc_head IS BEGIN_T commands END                {fprintf(yyout,"RTRN %lld\n",sym_check("return")); variable_count = max_count;}
             |
 
 proc_head   : fidentifier '(' args_decl ')'
@@ -256,10 +256,10 @@ temp        :
 
 declarations: declarations ',' pidentifier                              {declare($3,0);}
             | pidentifier                                               {declare($1,0);}
-            | declarations ',' pidentifier '[' val ':' val ']'          {declare_array($3,0,$5,$7); int pos = sym_check($3);
-                                                                        fprintf(yyout,"SET %d\n",pos-$5+1); fprintf(yyout,"STORE %d\n",pos);}
-            | pidentifier '[' val ':' val ']'                           {declare_array($1,0,$3,$5); int pos = sym_check($1);
-                                                                        fprintf(yyout,"SET %d\n",pos-$3+1); fprintf(yyout,"STORE %d\n",pos);}
+            | declarations ',' pidentifier '[' val ':' val ']'          {declare_array($3,0,$5,$7); long long pos = sym_check($3);
+                                                                        fprintf(yyout,"SET %lld\n",pos-$5+1); fprintf(yyout,"STORE %lld\n",pos);}
+            | pidentifier '[' val ':' val ']'                           {declare_array($1,0,$3,$5); long long pos = sym_check($1);
+                                                                        fprintf(yyout,"SET %lld\n",pos-$3+1); fprintf(yyout,"STORE %lld\n",pos);}
 
 commands    : commands command
             | command
@@ -272,7 +272,7 @@ command     : aidentifier assign expression lineend                     {store_v
             | FOR for commands ENDFOR                                   {end_for($2);}
             | proc_call lineend
             | WRITE value lineend                                       {write_var($2);}
-            | READ aidentifier lineend                                  {fprintf(yyout,"GET %d\n",$2); init($2);}
+            | READ aidentifier lineend                                  {fprintf(yyout,"GET %lld\n",$2); init($2);}
 
 premain     :                                                           {fprintf(yyout,"MAIN "); current_scope = "main";}
 if          :                                                           {loop_type = 0;}
@@ -287,7 +287,7 @@ for         : pidentifier FROM value TO value DO        {loop_type=3; declare($1
                                                         start_for($3,$5,$$[1],$$[0]);}
 
 expression  : value                 {if ($1[0]==0){
-                                        fprintf(yyout,"SET %d\n",$1[1]);}
+                                        fprintf(yyout,"SET %lld\n",$1[1]);}
                                     else{
                                         load_var($1[1]);};}
             | value '+' value       {handle_addition($1,$3);}
@@ -312,24 +312,24 @@ val         : number                   {$$ = $1;}
             | '-' number               {$$ = -$2;}
 
 aidentifier  : pidentifier                      {type_check($1,0); $$ = sym_check($1);}
-            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3); int pos = sym_check($1); fprintf(yyout,"SET %d\n",$3); add_var(pos);
-                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
-            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3); int pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
-                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
+            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3); long long pos = sym_check($1); fprintf(yyout,"SET %lld\n",$3); add_var(pos);
+                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
+            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3); long long pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
+                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
 
 identifier  : pidentifier                       {type_check($1,0); $$ = sym_check($1); init_check($1);}
-            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3); int pos = sym_check($1); fprintf(yyout,"SET %d\n",$3); add_var(pos);
-                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
-            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3); int pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
-                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %d\n",$$);}
+            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3); long long pos = sym_check($1); fprintf(yyout,"SET %lld\n",$3); add_var(pos);
+                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
+            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3); long long pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
+                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
 
-proc_call   : prefunc '(' args ')'      {int type = num_check(fun_loc+arg_count);
+proc_call   : prefunc '(' args ')'      {long long type = num_check(fun_loc+arg_count);
                                          if (type == 1 || type == 2){
                                             error_type = 11;
                                             yyerror(current_function);}
                                          arg_count = 0;
                                          fprintf(yyout,"SET RETURN\n");
-                                         fprintf(yyout,"STORE %d\n",fun_loc);
+                                         fprintf(yyout,"STORE %lld\n",fun_loc);
                                          fprintf(yyout,"JUMP FUN$_%s_$FUN\n",$1);}
 
 args        : args ',' pidentifier      {add_argument($3); init(sym_check($3));}
@@ -346,109 +346,123 @@ assign      : ASSIGN
 
 %%
 
-void load_var(int n){
-    int type = num_check(n);
+void load_var(long long n){
+    long long type = num_check(n);
     if (type == 0){
-        fprintf(yyout,"LOAD %d\n",n);
+        fprintf(yyout,"LOAD %lld\n",n);
     }
     else{
-        fprintf(yyout,"LOADI %d\n",n);
+        fprintf(yyout,"LOADI %lld\n",n);
     }
 }
 
-void store_var(int n){
-    int type = num_check(n);
+void store_var(long long n){
+    long long type = num_check(n);
     if (type == 0){
-        fprintf(yyout,"STORE %d\n",n);
+        fprintf(yyout,"STORE %lld\n",n);
     }
     else{
-        fprintf(yyout,"STOREI %d\n",n);
+        fprintf(yyout,"STOREI %lld\n",n);
     }
 }
 
-void add_var(int n){
-    int type = num_check(n);
+void add_var(long long n){
+    long long type = num_check(n);
     if (type == 0){
-        fprintf(yyout,"ADD %d\n",n);
+        fprintf(yyout,"ADD %lld\n",n);
     }
     else{
-        fprintf(yyout,"ADDI %d\n",n);
+        fprintf(yyout,"ADDI %lld\n",n);
     }
 }
 
-void sub_var(int n){
-    int type = num_check(n);
+void sub_var(long long n){
+    long long type = num_check(n);
     if (type == 0){
-        fprintf(yyout,"SUB %d\n",n);
+        fprintf(yyout,"SUB %lld\n",n);
     }
     else{
-        fprintf(yyout,"SUBI %d\n",n);
+        fprintf(yyout,"SUBI %lld\n",n);
     }
 }
 
-void write_var(int *x){
+void write_var(long long *x){
     if (x[0]==0){
-        fprintf(yyout,"SET %d\n",x[1]);
+        fprintf(yyout,"SET %lld\n",x[1]);
         fprintf(yyout,"PUT 0\n");
     }
     else{
-        int type = num_check(x[1]);
+        long long type = num_check(x[1]);
         if (type == 0){
-            fprintf(yyout,"PUT %d\n",x[1]);
+            fprintf(yyout,"PUT %lld\n",x[1]);
         }
         else{
-            fprintf(yyout,"LOADI %d\n",x[1]);
+            fprintf(yyout,"LOADI %lld\n",x[1]);
             fprintf(yyout,"PUT 0\n");
         }
     }
 }
 
-void handle_addition(int *x, int *y){
+void handle_addition(long long *x, long long *y){
     if (x[0]==1 && y[0] == 1){
         load_var(x[1]);
         add_var(y[1]);
     }
     else if (x[0]==0 && y[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]+y[1]);
+        if ((x[1] > 0 && y[1] > LLONG_MAX - x[1]) || (x[1] < 0 && y[1] < LLONG_MIN - x[1])){
+            fprintf(yyout,"SET %lld\n",x[1]);
+            fprintf(yyout,"STORE $+1\n");
+            fprintf(yyout,"SET %lld\n",y[1]);
+            fprintf(yyout,"ADD $+1\n");
+        }
+        else{
+            fprintf(yyout,"SET %lld\n",x[1]+y[1]);
+        }
     }
     else if (x[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]);
+        fprintf(yyout,"SET %lld\n",x[1]);
         add_var(y[1]);
     }
     else{
-        fprintf(yyout,"SET %d\n",y[1]);
+        fprintf(yyout,"SET %lld\n",y[1]);
         add_var(x[1]);
     }
 }
 
-void handle_subtraction(int *x, int *y){
+void handle_subtraction(long long *x, long long *y){
     if (x[0]==1 && y[0] == 1){
         load_var(x[1]);
         sub_var(y[1]);
     }
     else if (x[0]==0 && y[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]-y[1]);
+        if ((x[1] < 0 && y[1] > LLONG_MAX + x[1]) || (x[1] > 0 && y[1] < LLONG_MIN + x[1])){
+            fprintf(yyout,"SET %lld\n",y[1]);
+            fprintf(yyout,"STORE $+1\n");
+            fprintf(yyout,"SET %lld\n",x[1]);
+            fprintf(yyout,"SUB $+1\n");
+        }
+        else{
+            fprintf(yyout,"SET %lld\n",x[1]-y[1]);
+        }
     }
     else if (x[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]);
-        //fprintf(yyout,"SUB %d\n",y[1]);
+        fprintf(yyout,"SET %lld\n",x[1]);
         sub_var(y[1]);
     }
     else{
-        fprintf(yyout,"SET %d\n",-y[1]);
-        //fprintf(yyout,"ADD %d\n", x[1]);
+        fprintf(yyout,"SET %lld\n",-y[1]);
         add_var(x[1]);
     }
 }
 
-void handle_multiplication(int *x, int *y){
-    if (x[0]==0 && y[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]*y[1]);
+void handle_multiplication(long long *x, long long *y){
+    if ((x[0]==0 && y[0] == 0) && !((x[1] > 0 && (y[1] > LLONG_MAX / x[1] || y[1] < LLONG_MIN / x[1])) || (x[1] < 0 && (y[1] < LLONG_MAX / x[1] || y[1] > LLONG_MIN / x[1])))){
+        fprintf(yyout,"SET %lld\n",x[1]*y[1]);
         return;
     }
 
     if (x[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]);}
+        fprintf(yyout,"SET %lld\n",x[1]);}
     else {
         load_var(x[1]);}
     fprintf(yyout,"STORE $+1\n");
@@ -465,7 +479,7 @@ void handle_multiplication(int *x, int *y){
     fprintf(yyout,"STORE $+5\n");
 
     if (y[0] == 0){
-        fprintf(yyout,"SET %d\n",y[1]);}
+        fprintf(yyout,"SET %lld\n",y[1]);}
     else {
         load_var(y[1]);}
     fprintf(yyout,"STORE $+2\n");
@@ -481,7 +495,7 @@ void handle_multiplication(int *x, int *y){
     fprintf(yyout,"SET 0\n");
     fprintf(yyout,"STORE $+3\n");
 
-    fprintf(yyout,"LOAD %d\n",y[1]);
+    fprintf(yyout,"LOAD %lld\n",y[1]);
     fprintf(yyout,"LOAD $+2\n");
     fprintf(yyout,"JZERO 20\n");
 
@@ -514,18 +528,18 @@ void handle_multiplication(int *x, int *y){
     fprintf(yyout,"LOAD $+3\n");
 }
 
-void handle_division(int *x, int *y){
+void handle_division(long long *x, long long *y){
     if(y[1] == 0){
         fprintf(yyout,"SET 0\n");
         return;
     }
     if (x[0]==0 && y[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]/y[1]);
+        fprintf(yyout,"SET %lld\n",x[1]/y[1]);
         return;
     } 
 
     if (x[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]);}
+        fprintf(yyout,"SET %lld\n",x[1]);}
     else {
         load_var(x[1]);}
     x[1] = variable_count+1;
@@ -540,11 +554,11 @@ void handle_division(int *x, int *y){
     fprintf(yyout,"STORE $+6\n");
 
     if (y[0] == 0){
-        fprintf(yyout,"SET %d\n",y[1]);}
+        fprintf(yyout,"SET %lld\n",y[1]);}
     else {
         load_var(y[1]);}
     y[1] = variable_count+2;
-    fprintf(yyout,"JZERO 47\n");
+    fprintf(yyout,"JZERO 45\n");
     fprintf(yyout,"STORE $+2\n");
     fprintf(yyout,"JPOS 7\n");
     fprintf(yyout,"SUB $+2\n");
@@ -598,25 +612,25 @@ void handle_division(int *x, int *y){
     fprintf(yyout,"LOAD $+3\n");
 }
 
-void handle_modulo(int *x, int *y){
+void handle_modulo(long long *x, long long *y){
     if(y[1] == 0){
         fprintf(yyout,"SET 0\n");
         return;
     }
     if (x[0]==0 && y[0] == 0){
-        int res = x[1]%y[1];
+        long long res = x[1]%y[1];
         if (x[1]*y[1]<0){
             res += y[1];
         }
-        fprintf(yyout,"SET %d\n",res);
+        fprintf(yyout,"SET %lld\n",res);
         return;
     } 
 
-    int a = variable_count+3;
-    int flag = variable_count+4;
-    int flag2 = variable_count+5;
+    long long a = variable_count+3;
+    long long flag = variable_count+4;
+    long long flag2 = variable_count+5;
     if (x[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]);}
+        fprintf(yyout,"SET %lld\n",x[1]);}
     else {
         load_var(x[1]);}
     x[1] = variable_count+1;
@@ -632,7 +646,7 @@ void handle_modulo(int *x, int *y){
     fprintf(yyout,"STORE $+5\n");
 
     if (y[0] == 0){
-        fprintf(yyout,"SET %d\n",y[1]);}
+        fprintf(yyout,"SET %lld\n",y[1]);}
     else {
         load_var(y[1]);}
     y[1] = variable_count+2;
@@ -686,7 +700,7 @@ void handle_modulo(int *x, int *y){
     fprintf(yyout,"SUB $+1\n");
 }
 
-void handle_compare(int *x, int *y, int type){
+void handle_compare(long long *x, long long *y, long long type){
     if (loop_type == 1){
         fprintf(yyout,"WHILESTART ");
     }
@@ -699,14 +713,14 @@ void handle_compare(int *x, int *y, int type){
         sub_var(y[1]);
     }
     else if (x[0]==0 && y[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]-y[1]);
+        fprintf(yyout,"SET %lld\n",x[1]-y[1]);
     }
     else if (x[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]);
+        fprintf(yyout,"SET %lld\n",x[1]);
         sub_var(y[1]);
     }
     else{
-        fprintf(yyout,"SET %d\n",-y[1]);
+        fprintf(yyout,"SET %lld\n",-y[1]);
         add_var(x[1]);
     }
 
@@ -746,7 +760,7 @@ void handle_compare(int *x, int *y, int type){
     }
 }
 
-void start_for(int *x, int *y, int i, int type){
+void start_for(long long *x, long long *y, long long i, long long type){
     if (x[0] == 0 && y[0] == 0){
         if (type == 0 && x[1]>y[1]){
             error_type = 13;
@@ -759,24 +773,24 @@ void start_for(int *x, int *y, int i, int type){
     }
     
     if (x[0] == 0){
-        fprintf(yyout,"SET %d\n",x[1]);
+        fprintf(yyout,"SET %lld\n",x[1]);
     }
     else{
         load_var(x[1]);
     }
     x[0] = 1;
     x[1] = i;
-    fprintf(yyout,"STORE %d\n",i);
+    fprintf(yyout,"STORE %lld\n",i);
 
     if (y[0] == 0){
-        fprintf(yyout,"SET %d\n",y[1]);
+        fprintf(yyout,"SET %lld\n",y[1]);
     }
     else{
         load_var(y[1]);
     }
     y[0] = 1;
     y[1] = i+1;
-    fprintf(yyout,"STORE %d\n",i+1);
+    fprintf(yyout,"STORE %lld\n",i+1);
 
     if (type == 0){
         handle_compare(x,y,4);
@@ -786,15 +800,15 @@ void start_for(int *x, int *y, int i, int type){
     }
 }
 
-void end_for(int *i){
+void end_for(long long *i){
     if (i[0] == 0){
         fprintf(yyout,"SET 1\n");
     }
     else{
         fprintf(yyout,"SET -1\n");
     }
-    fprintf(yyout,"ADD %d\n",i[1]);
-    fprintf(yyout,"STORE %d\n",i[1]);
+    fprintf(yyout,"ADD %lld\n",i[1]);
+    fprintf(yyout,"STORE %lld\n",i[1]);
     fprintf(yyout,"FOREND JUMP FORSTART\n");
 
     symbol *ptr;
@@ -811,13 +825,13 @@ void end_for(int *i){
 }
 
 void add_argument(char *name){
-    int pos = sym_check(name);
-    int type = num_check(pos);
+    long long pos = sym_check(name);
+    long long type = num_check(pos);
     if (type == 0){
-        fprintf(yyout,"SET %d\n",pos);
+        fprintf(yyout,"SET %lld\n",pos);
     }
     else{
-        fprintf(yyout,"LOAD %d\n",pos);
+        fprintf(yyout,"LOAD %lld\n",pos);
     }
 
     type = num_check(fun_loc+arg_count);
@@ -832,7 +846,7 @@ void add_argument(char *name){
         type_check(name,1);
     }
 
-    fprintf(yyout,"STORE %d\n",fun_loc+arg_count);
+    fprintf(yyout,"STORE %lld\n",fun_loc+arg_count);
     arg_count+=1;
 }
 
@@ -888,7 +902,7 @@ int yyerror(char *name){
     exit(1);
 }
 
-int main(int argc, char *argv[])
+long long main(int argc, char *argv[])
 {
     yyout = fopen("temp1.mr","w");
     yyin = fopen(argv[1], "r");

@@ -21,8 +21,8 @@ def set_labels(labels,mx,source_file,result_file):
     for i in range(len(source_file)):
         if labels  and i == labels[0][0]:
             label = labels[0][1]
-            if label[0:1] == "$":
-                num = label[2:]
+            if label[0] == "$":
+                num = label[2]
                 num = int(num)+mx
                 line = source_file[i].strip()+" "+str(num)+"\n"
             else:

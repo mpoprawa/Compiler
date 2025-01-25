@@ -49,7 +49,7 @@ int linenum = 1;
 ","             { return ','; }
 ";"             { return ';'; }
 "T"             { return 'T'; }
-([0-9])* 	    { yylval.num = atoi(yytext); return number; }
+([0-9])* 	    { yylval.num = atoll(yytext); return number; }
 [_a-z]+         { yylval.str = strdup(yytext); return pidentifier; }
 \n              { linenum+=1; }
 "#".*           ;
