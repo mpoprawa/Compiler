@@ -533,8 +533,14 @@ void handle_division(long long *x, long long *y){
         fprintf(yyout,"SET 0\n");
         return;
     }
-    if (x[0]==0 && y[0] == 0){
-        fprintf(yyout,"SET %lld\n",x[1]/y[1]);
+    if (x[0] == 0 && y[0] == 0){
+        long long div = x[1] / y[1];
+        if (x[1] < 0 != y[1] < 0) {
+            if (div * y[1] != x[1]) {
+                div -= 1;
+            }
+        }
+        fprintf(yyout,"SET %lld\n",div);
         return;
     } 
 
