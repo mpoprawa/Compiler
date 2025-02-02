@@ -558,7 +558,7 @@ void handle_division(long long *x, long long *y){
     else {
         load_var(y[1]);}
     y[1] = variable_count+2;
-    fprintf(yyout,"JZERO 45\n");
+    fprintf(yyout,"JZERO 49\n");
     fprintf(yyout,"STORE $+2\n");
     fprintf(yyout,"JPOS 7\n");
     fprintf(yyout,"SUB $+2\n");
@@ -605,7 +605,11 @@ void handle_division(long long *x, long long *y){
     fprintf(yyout,"JUMP -23\n");
 
     fprintf(yyout,"LOAD $+6\n");
-    fprintf(yyout,"JZERO 4\n");
+    fprintf(yyout,"JZERO 8\n");
+    fprintf(yyout,"LOAD $+1\n");
+    fprintf(yyout,"JZERO 3\n");
+    fprintf(yyout,"SET -1\n");
+    fprintf(yyout,"JUMP 2\n");
     fprintf(yyout,"SET 0\n");
     fprintf(yyout,"SUB $+3\n");
     fprintf(yyout,"JUMP 2\n");
