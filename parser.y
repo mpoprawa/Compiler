@@ -249,10 +249,8 @@ args_decl   : args_decl ',' pidentifier                                         
             | 'T' pidentifier                                                       {declare($2,2);}
             |
 
-main        : premain PROGRAM IS declarations temp BEGIN_T commands END temp
+main        : premain PROGRAM IS declarations BEGIN_T commands END
             | premain PROGRAM IS BEGIN_T commands END
-
-temp        :
 
 declarations: declarations ',' pidentifier                              {declare($3,0);}
             | pidentifier                                               {declare($1,0);}
@@ -281,9 +279,11 @@ while       :                                                           {loop_ty
 repeat1     :                                                           {fprintf(yyout,"UNTILSTART ");}
 repeat2     :                                                           {loop_type = 2;}
 
-for         : pidentifier FROM value TO value DO        {loop_type=3; declare($1,3); declare("for_limit",0); $$[0]=0; $$[1]=sym_check($1);
+for         : pidentifier FROM value TO value DO        {loop_type=3; declare($1,3); declare("for_limit",0);
+                                                        $$[0]=0; $$[1]=sym_check($1);
                                                         start_for($3,$5,$$[1],$$[0]);}
-            | pidentifier FROM value DOWNTO value DO    {loop_type=3; declare($1,3); declare("for_limit",0); $$[0]=1; $$[1]=sym_check($1);
+            | pidentifier FROM value DOWNTO value DO    {loop_type=3; declare($1,3); declare("for_limit",0);
+                                                        $$[0]=1; $$[1]=sym_check($1);
                                                         start_for($3,$5,$$[1],$$[0]);}
 
 expression  : value                 {if ($1[0]==0){
@@ -312,16 +312,21 @@ val         : number                   {$$ = $1;}
             | '-' number               {$$ = -$2;}
 
 aidentifier  : pidentifier                      {type_check($1,0); $$ = sym_check($1);}
-            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3); long long pos = sym_check($1); fprintf(yyout,"SET %lld\n",$3); add_var(pos);
-                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
-            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3); long long pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
-                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
+            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3);
+                                                long long pos = sym_check($1); fprintf(yyout,"SET %lld\n",$3);
+                                                add_var(pos); declare("array_adr",1);
+                                                $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
+            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3);
+                                                long long pos = sym_check($1); load_var(sym_check($3)); add_var(pos); declare("array_adr",1);
+                                                $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
 
 identifier  : pidentifier                       {type_check($1,0); $$ = sym_check($1); init_check($1);}
-            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3); long long pos = sym_check($1); fprintf(yyout,"SET %lld\n",$3); add_var(pos);
-                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
-            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3); long long pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
-                                                 declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
+            | pidentifier '[' val ']'           {type_check($1,1); bound_check($1,$3);
+                                                long long pos = sym_check($1); fprintf(yyout,"SET %lld\n",$3); add_var(pos);
+                                                declare("array_adr",1); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
+            | pidentifier '[' pidentifier ']'   {type_check($1,1); type_check($3,0); init_check($3);
+                                                long long pos = sym_check($1); load_var(sym_check($3)); add_var(pos);
+                                                declare("array_adr",1  ); $$ = sym_check("array_adr"); fprintf(yyout,"STORE %lld\n",$$);}
 
 proc_call   : prefunc '(' args ')'      {long long type = num_check(fun_loc+arg_count);
                                          if (type == 1 || type == 2){
