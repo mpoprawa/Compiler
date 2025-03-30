@@ -1,5 +1,6 @@
-Kompilator kompilujący język opisywany gramatyką z pliku grammar.txt na kod maszyny rejestrowej.  
-Dodatkowe wymagania języka:  
+Kompilator kompilujący język opisywany gramatyką z pliku grammar.txt na kod maszyny rejestrowej.  \
+
+Dodatkowe wymagania języka:
 - Tablice indeksowane są od dowolnych wartości  
 - Ilość wykonań pętli jest ustalana przed pierwszym wykonaniem pętli  
 - Kompilator przyjmuje dowolne 64-bitowe liczby całkowite  
@@ -8,17 +9,15 @@ Dodatkowe wymagania języka:
 - Rekurencja nie jest dozwolona  
 - Parametry funkcji są typu IN-OUT  
 
-Kompilacja:  
-make all
+Kompilacja: make all
 
-Użycie:  
-python3 compiler.py <nazwa pliku wejściowego> <nazwa pliku wyjściowego>
+Użycie: python3 compiler.py <nazwa pliku wejściowego> <nazwa pliku wyjściowego>
 
-Wymagane narzędzia:  
+Wymagane narzędzia:
 - flex  
 - bison
 
-Pliki:  
+Pliki:
 - parser.y - główny parser  
 - lexer.l - główny lexer  
 - label_parser.y - parser etykiet  
